@@ -1,7 +1,7 @@
-# Lookit
+# inferReward
 
-This README outlines the details of collaborating on this Ember application.
-A short introduction of this app could easily go here.
+This README outlines the details of a model for an infant development experiment 
+run by Elizabeth Spelke, Shari Liu and Tomer Ullman.
 
 ## Prerequisites
 
@@ -13,4 +13,4 @@ You will need the following things properly installed on your computer.
 ## Installation
 
 ```bash
-git clone https://github.com/CenterForOpenScience/lookit.git
+git clone https://github.com/tomeru/inferReward.git
