@@ -4,7 +4,7 @@
 
 ;; The following code is written in the probabilistic 
 ;; programming language Church, and tested with the 
-;; webchurch implemention, which can be downloaded here:
+;; webchurch implementation, which can be downloaded here:
 ;; https://github.com/probmods/webchurch
 
 ;; The code can be run directly in a browser without 
