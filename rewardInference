@@ -1,0 +1,328 @@
+; SOME COMMENTS BEFORE THE CODE
+; The problem description: In the forward direction, we have an agent with a utility U, that can be broken up into (R)eward and (C)ost. The agent takes a particular action "a" from the set of possible actions A, using some decision function.
+; In our setup, we'll use the softmax decision function, but others are possible.
+; In the inverse direction, we see an action take an action, and we want to figure out the most likely reward and cost that led to that. Using the reward and cost, we want to predict the next actions. 
+; We'll be doing a bunch of abstracting away, especially in terms of the planning. For example, instead of the agent looking at the resulting state  of their action and checking its utility, we will associate directly a utility with an action. So we're not including a transition function explicitly. 
+
+;; =========
+;; 1. Set-up 
+;; =========
+
+;; The following code is written in the probabilistic programming language Church, 
+;; and tested with the webchurch implemention, which can be downloaded here:
+;; https://github.com/probmods/webchurch
+
+;; The code can be run directly in a browser without downloading webchurch here:
+;; https://probmods.org/play-space.html
+
+;; However, note that if running the code in a browser consider using fewer samples
+;; as the sampling procedure can take several minutes. 
+
+;; Visualizations use Python version 2.7.12 and the Seaborn visualization library. 
+
+;; ========
+;; 2. Model
+;; ========
+
+;; This code implements a model for the inference of reward functions and subsequent
+;; behavior of rational agents. 
+
+;; The model assumes a person is a rational agent making decisions via a planning
+;; procedure. This planning procedure defines a probability over possible actions:
+
+;; P(Action | Reward, Cost, Transition), (1)
+
+;; The planning procedure is implemented using the function "planning-procedure".
+;; In this particular case we assume the agent uses a soft-max decision rule. 
+
+;; The model then infers the likely cost and reward functions conditioned on the
+;; action, by inverting the planning procedure. That is, it calculates:
+
+;; P(Reward, Cost | Action), (2)
+
+;; This inference is implemented using the function "infer-cost-and-reward".
+
+;; The model then uses these infer costs and rewards to predict the agent's action
+;; in a new situation, using the same planning procedure as in (1). 
+
+;; -------
+
+;;; ===================
+;;; 3. Forward Planning  
+;;; ===================
+
+(define (choose-agent-action possible-actions 
+                             reward-function 
+                             cost-function 
+                             transition-function)
+  ;; Takes in: 
+  ;; (1) possible actions in given state (string list), 
+  ;; (2) A reward (function state->real) and cost (function action->real), 
+  ;; (3) A transition function (action, state -> state)
+  
+  ;; Returns an action (string) (string) from the possible actions list. 
+ 
+  ;; First, find the resulting states for the possible actions by using
+  ;; the transition function. 
+  
+  (define resulting-states 
+    (map transition-function possible-actions))
+  
+  ;;; We assume the utility decomposes into costs and rewards (see Jara-Ettinger et al. 2016),
+  ;;; This is simply U = R(S) - C(A)
+  (define (utility action 
+                   state)
+
+    (let ((cost (cost-function action))
+          (reward (reward-function state)))
+      (- reward cost)))
+  
+  ;; Find the utility for all possible actions and resulting states
+  ;; U(S, A) = R(S) - C(A)
+  (define utility-of-possible-actions
+    (map utility 
+         possible-actions
+         resulting-states))
+  
+  ;; A softmax transforms utilities into probabilities, using
+  ;; a beta parameter to interpolate between random-choice,
+  ;; and maximum-likelihood choice.
+  
+  (define (softmax utility-of-possible-actions beta-param)
+    (let ((normalizer (sum (map (lambda (x) (exp (* beta-param x))) utility-of-possible-actions))))
+      (map (lambda (x) (/ (exp (* beta-param x)) normalizer))
+           utility-of-possible-actions)))
+
+  ;; We do not know beta in advance and so draw it from a
+  ;; prior. Previous research (e.g. Baker et al. 2009) suggests
+  ;; a beta that corresponds roughly with probability matching. 
+  ;; Thus we use a gamma with a mean of 1.5 and a somewhat long tail 
+   
+  (define beta-param (gamma 2. 1.))
+
+  ;; Transform the utilities into probabilities, using the softmax
+  (define probability-over-actions (softmax utility-of-possible-actions beta-param))
+
+  ;; Sample an action in proportion to its probability
+  (define specific-action (multinomial possible-actions probability-over-actions))
+
+  ;; sample a specific action. since this is the last thing in the function, 
+  ;; this action is returned 
+  specific-action)
+
+;;; ==============================
+;;; 4. Stimuli the infants observe
+;;; ==============================
+
+
+;;; Stimuli 1A
+;; ----------
+;; The Protagonist can jump a short barrier to reach the yellow goal agent.
+;; It chooses to jump the short barrier. 
+
+(define (transition-world-1a action)
+  (cond [(equal? action 'jump-short-barrier) 'reach-yellow]
+        [(equal? action 'do-nothing) 'start]))  
+
+(define possible-actions-1a '(jump-short-barrier do-nothing))
+(define observed-action-1a 'jump-short-barrier)
+  
+  
+;;; Stimuli 1B
+;; ----------
+;; The Protagonist can jump a medium barrier to reach the yellow goal agent.
+;; It chooses to do nothing.
+
+(define (transition-world-1b action)
+  (cond [(equal? action 'jump-medium-barrier) 'reach-yellow]
+        [(equal? action 'do-nothing) 'start]))  
+
+(define possible-actions-1b '(jump-medium-barrier do-nothing))
+(define observed-action-1b 'do-nothing)
+
+  
+;;; Stimuli 2A
+;; ----------
+;; The Protagonist can jump a medium barrier to reach the blue goal agent.
+;; It chooses to jump the medium barrier.
+
+(define (transition-world-2a action)
+  (cond [(equal? action 'jump-medium-barrier) 'reach-blue]
+        [(equal? action 'do-nothing) 'start]))  
+
+(define possible-actions-2a '(jump-medium-barrier do-nothing))
+(define observed-action-2a 'jump-medium-barrier)
+
+;;; Stimuli 2B
+;; ----------
+;; The Protagonist can jump a tall barrier to reach the blue goal agent.
+;; It chooses to do nothing.
+
+(define (transition-world-2b action)
+  (cond [(equal? action 'jump-tall-barrier) 'reach-blue]
+        [(equal? action 'do-nothing) 'start]))  
+
+(define possible-actions-2b '(jump-tall-barrier do-nothing))
+(define observed-action-2b 'do-nothing)
+
+;;; Stimuli Test
+;; ----------
+;; The Protagonist can go directly to the blue or yellow goal agents
+
+(define (transition-world-test action)
+  (cond [(equal? action 'go-left) 'reach-blue]
+        [(equal? action 'go-right) 'reach-yellow]
+        [(equal? action 'do-nothing) 'start]))  
+
+(define possible-actions-test '(go-left go-right do-nothing))
+
+
+
+;;; ====================
+;;; 5. Inverse Inference 
+;;; ====================
+
+;; Assumptions: 
+
+;; (1, cost) 
+;;     Jumping a tall barrier is harder than a medium barrier
+;;     Jumping a medium barrier is harder than a short barrier 
+;;     Jumping a short-barrier is harder than staying put 
+
+;; (2, reward) 
+;;     A-priori equal distribution of reward for blue and yellow
+;;     Either goal is potentially better than staying put 
+
+(define (infer-agent-reward)
+  ;; Takes in: 
+  ;; (1) possible actions in given state (string list), 
+  ;; (2) A transition function (action, state -> state)
+  
+  ;; Returns:
+  ;; N reward pairs ((float, float) list) from the posterior distributions:
+  ;; (P(Reward(Blue) | Action), P(Reward(Yellow) | Action))
+   
+  
+  ;; The inference uses Metropolis-Hastings  
+  (mh-query 10000 10
+            
+            ;; COST
+            ;; semi-arbitrary costs that follow assumption (1) 
+            ;; we choose do-nothing as 0.0 for grounding
+            
+            (define cost-function
+              (mem (lambda (action)
+                     (cond [(equal? action 'jump-tall-barrier) (uniform 0.8 1.0)]
+                           [(equal? action 'jump-medium-barrier) (uniform 0.4 0.6)]
+                           [(equal? action 'jump-short-barrier) (uniform 0.0 0.2)]
+                           [(equal? action 'do-nothing) 0.0]))))
+            
+            ;; REWARD
+            ;; arbitrary grounding, initial state is 0 reward. 
+            ;; We are explicitly defining the specific rewards
+            ;; outside the main reward function because it will be 
+            ;; returned as the target of inference
+            
+            (define reward-start-state 0.0)
+            (define reward-blue (uniform 0 1))
+            (define reward-yellow (uniform 0 1))
+            
+            (define (reward-function state)
+              (cond [(equal? state 'start) 0.0]
+                    [(equal? state 'reach-blue) reward-blue]
+                    [(equal? state 'reach-yellow) reward-yellow]))
+            
+            ;; SAMPLE ACTIONS
+            (define (simulated-action-1a) (choose-agent-action possible-actions-1a 
+                                                          reward-function 
+                                                          cost-function
+                                                          transition-world-1a)) 
+            
+            (define (simulated-action-1b) (choose-agent-action possible-actions-1b 
+                                                          reward-function 
+                                                          cost-function
+                                                          transition-world-1b)) 
+
+            (define (simulated-action-2a) (choose-agent-action possible-actions-2a 
+                                                          reward-function 
+                                                          cost-function
+                                                          transition-world-2a)) 
+            
+            (define (simulated-action-2b) (choose-agent-action possible-actions-2b 
+                                                          reward-function 
+                                                          cost-function
+                                                          transition-world-2b)) 
+            (define familiarization-trial-n 4)
+            
+            ;; QUERY
+            ;; Return samples from the rewards
+            (list reward-blue reward-yellow)
+            
+            ;; CONDITIONED ON
+            ;; The simulated action being equal to the observed action
+            ;; There were 6 familiarization trials, each presenting 1a/1b/2a/2b
+            (and 
+             (equal? (repeat familiarization-trial-n simulated-action-1a) 
+                     (repeat familiarization-trial-n (lambda () observed-action-1a)))
+             (equal? (repeat familiarization-trial-n simulated-action-1b) 
+                     (repeat familiarization-trial-n (lambda () observed-action-1b)))
+             (equal? (repeat familiarization-trial-n simulated-action-2a) 
+                     (repeat familiarization-trial-n (lambda () observed-action-2a)))
+             (equal? (repeat familiarization-trial-n simulated-action-2b) 
+                     (repeat familiarization-trial-n (lambda () observed-action-2b))))
+  ))
+
+
+;;; ====================
+;;; 6. Action Prediction
+;;; ====================
+
+;; Conditioned on the reward and cost structure the infant has inferred,
+;; they can use the forward-planning part to predict the next action of
+;; the agent: P(action_new | inferred_reward, inferred_cost) 
+
+
+(define (predict-agent-action)
+  (define inferred-reward-samples (infer-agent-reward))
+
+  (mh-query 1000 10
+            (define cost-to-move (uniform 0.0 0.1))
+            (define cost-function
+              (mem (lambda (action)
+                     (cond [(equal? action 'go-left) cost-to-move]
+                           [(equal? action 'go-right) cost-to-move]
+                           [(equal? action 'do-nothing) 0.0]))))
+            (define rewards (uniform-draw inferred-reward-samples))
+            (define reward-blue (first rewards))
+            (define reward-yellow (second rewards))
+            
+            (define (reward-function state)
+              (cond [(equal? state 'start) 0.0]
+                    [(equal? state 'reach-blue) reward-blue]
+                    [(equal? state 'reach-yellow) reward-yellow]))
+            
+            
+            (define (predicted-action) (choose-agent-action possible-actions-test
+                                                          reward-function 
+                                                            cost-function
+                                                            transition-world-test))          
+            
+            
+            ;; QUERY
+            ;; we see the test event twice, what do we predict will happen
+            (list (predicted-action) (predicted-action))
+            
+            ;; CONDITIONED ON
+            ;; unconditioned, this is prediction
+            #t))
+
+;;; ====================
+;;; 7. RUNNING THE MODEL
+;;; ====================
+
+;; Uncomment the following to run reward inferece
+
+(infer-agent-reward)
+
+;; Uncomment the following to run action prediction
+;(predict-agent-action)
