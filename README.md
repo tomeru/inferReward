@@ -1,7 +1,7 @@
 # inferReward
 
-This README outlines the details of a model for an infant development experiment 
-run by Elizabeth Spelke, Shari Liu and Tomer Ullman.
+This README outlines the details of a probabilistic programming model for an infant development experiment 
+run by Shari Liu, Tomer Ullman and Elizabeth Spelke. 
 
 ## Prerequisites
 
