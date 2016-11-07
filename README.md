@@ -16,7 +16,7 @@ You will need the following things properly installed on your computer.
 git clone https://github.com/tomeru/inferReward.git
 ```
 
-###  Running the model
+##  Running the model
 
 The main model is found in rewardInference.txt ; the code there can be directly pasted into a
 browser implementation of Church, such as in [probmods.org](https://probmods.org).
