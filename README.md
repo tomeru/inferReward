@@ -1,11 +1,11 @@
 # inferReward
 
-This README outlines the details of a probabilistic programming model for an infant development experiment 
+This README refers to probabilistic programming model for an infant development experiment 
 run by Shari Liu, Tomer Ullman and Elizabeth Spelke. 
 
 ## Prerequisites
 
-You will need the following things properly installed on your computer.
+You will need the following things properly installed on your computer:
 
 * [webchurch](https://github.com/probmods/webchurch)
 
